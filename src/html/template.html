@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BoardGame Visual Analytics – Project 2</title>
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <h1>🎲 BoardGame VA</h1>
+      <p class="subtitle">Project 2 – Clustering &amp; Graph</p>
+
+      <section class="control-group">
+        <h3>Dataset</h3>
+        <label>Top-X games
+          <select id="ctrl-topX">
+            <option value="100" selected>Top 100</option>
+            <option value="200">Top 200</option>
+            <option value="500">Top 500</option>
+            <option value="1000">Top 1000</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="control-group">
+        <h3>K-Means (Task 2)</h3>
+        <label>k (clusters)
+          <input id="ctrl-k" type="range" min="2" max="12" value="5" />
+          <span id="ctrl-k-val">5</span>
+        </label>
+        <label>Distance metric
+          <select id="ctrl-metric">
+            <option value="euclidean" selected>Euclidean</option>
+            <option value="manhattan">Manhattan</option>
+            <option value="chebyshev">Chebyshev</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="control-group">
+        <h3>Selection</h3>
+        <button id="btn-clear">Clear highlight</button>
+        <p id="selected-info" class="info-text">No game selected.</p>
+      </section>
+
+      <section class="control-group">
+        <h3>Data quality</h3>
+        <div id="issues-panel" class="issues"></div>
+        <div class="cleaning-strategy">
+          <div class="cs-title">Cleaning strategy</div>
+          <div class="cs-item">Missing year → kept as null</div>
+          <div class="cs-item">Bad playtime → imputed 30 min</div>
+          <div class="cs-item">No rating → kept as 0</div>
+          <div class="cs-item">No category → flagged ([])</div>
+          <div class="cs-item">Numeric → normalized [0, 1]</div>
+          <div class="cs-item">Categories → one-hot (top 8)</div>
+        </div>
+      </section>
+
+      <section class="control-group" id="section-game-detail" style="display:none">
+        <h3>Selected Game</h3>
+        <div id="game-detail-panel"></div>
+      </section>
+
+      <section class="control-group">
+        <h3>Legend – Categories</h3>
+        <div id="legend"></div>
+      </section>
+    </aside>
+
+    <!-- Main grid -->
+    <main id="main-grid">
+      <!-- Row 1: Project-1 views -->
+      <div class="card" id="card-pc">
+        <div class="card-header">
+          <span class="card-title">Parallel Coordinates</span>
+          <span class="card-tag">Explore · Overall</span>
+        </div>
+        <div id="chart-pc"></div>
+      </div>
+
+      <div class="card" id="card-bubble">
+        <div class="card-header">
+          <span class="card-title">Bubble Matrix</span>
+          <span class="card-tag">Playtime × Rating × Mechanics</span>
+        </div>
+        <div id="chart-bubble"></div>
+      </div>
+
+      <!-- Row 2: Project-2 views -->
+      <div class="card" id="card-kmeans">
+        <div class="card-header">
+          <span class="card-title">K-Means Clustering</span>
+          <span class="card-tag">Trend · Cluster</span>
+        </div>
+        <div id="chart-kmeans"></div>
+      </div>
+
+      <div class="card" id="card-pagerank">
+        <div class="card-header">
+          <span class="card-title">Recommendation Graph (PageRank)</span>
+          <span class="card-tag">Graph · Significance</span>
+        </div>
+        <div id="chart-pagerank"></div>
+      </div>
+
+      <!-- Row 3: Chord -->
+      <div class="card card-wide" id="card-chord">
+        <div class="card-header">
+          <span class="card-title">Category × Mechanic Co-occurrence</span>
+          <span class="card-tag">Chord · Relations</span>
+        </div>
+        <div id="chart-chord"></div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
