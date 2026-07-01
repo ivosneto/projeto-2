@@ -1,309 +1,307 @@
-# Roteiro de Slides – BoardGame Visual Analytics Project 2
+# Slide Script – BoardGame Visual Analytics Project 2
 
 Visual Analytics · Summer Semester 2026 · Universität zu Köln
 
-> Este documento é o roteiro interno. Cada seção corresponde a um slide ou bloco de slides.
-> O que está em *itálico* são falas sugeridas para a apresentação oral.
+> This document is the internal presentation script. Each section corresponds to one slide or slide block.
+> Text in *italics* are suggested talking points for the oral presentation.
 
 ---
 
-## SLIDE 1 — Capa
+## SLIDE 1 — Cover
 
-**Título:** BoardGame Visual Analytics – Project 2
-**Subtítulo:** Clustering & Graph Analysis of the BGG Recommendation Network
-**Conteúdo:** Nome dos integrantes · Universität zu Köln · Junho 2026
+**Title:** BoardGame Visual Analytics – Project 2
+**Subtitle:** Clustering & Graph Analysis of the BGG Recommendation Network
+**Content:** Group members · Universität zu Köln · July 2026
 
 ---
 
-## SLIDE 2 — Visão geral do projeto
+## SLIDE 2 — Project Overview
 
-**Título:** O que o Project 2 adiciona ao Project 1?
+**Title:** What does Project 2 add to Project 1?
 
-**Conteúdo (3 blocos visuais):**
+**Content (3 visual blocks):**
 ```
-[Dataset maior]          [2 novos gráficos]        [Highlight ligado]
- 2 CSVs → 1 000 jogos    K-Means (Trend)            5 views coordenadas
- dados sujos tratados     PageRank (Significance)    1 clique propaga
- top-X dinâmico                                      para todas
+[Larger dataset]          [2 new charts]              [Linked highlighting]
+ 2 CSVs → 1,000 games     K-Means (Trend)              5 coordinated views
+ dirty data handled        PageRank (Significance)      1 click propagates
+ dynamic top-X filter                                   to all views
 ```
 
-*"No Project 1 usamos um dataset de 100 jogos já pré-processado. No Project 2 partimos de dois CSVs brutos com dados sujos, geramos o dataset de 1 000 jogos, e adicionamos dois novos gráficos analíticos ligados ao dashboard existente."*
+*"In Project 1 we used a pre-processed dataset of 100 games. In Project 2 we start from two raw CSVs with dirty data, generate a 1,000-game dataset, and add two new analytical charts linked to the existing dashboard."*
 
 ---
 
-## SLIDE 3 — Task 1: Dataset e fontes
+## SLIDE 3 — Task 1: Dataset and Sources
 
-**Título:** Task 1 – Dataset: duas fontes, um join
+**Title:** Task 1 – Dataset: Two Sources, One Join
 
-**Conteúdo:**
+**Content:**
 
-| Arquivo | Tamanho | Conteúdo |
-|---------|---------|----------|
-| `recommendations-2021-12-31.csv` | 1 000 linhas | Top-1000 BGG: ranking, rating, até 28 recomendações de fãs |
-| `bgg_Gameitems.csv` | ~114 000 linhas | Metadados: categorias, mecânicas, jogadores, playtime, designer |
+| File | Size | Content |
+|------|------|---------|
+| `recommendations-2021-12-31.csv` | 1,000 rows | BGG Top-1000: ranking, rating, up to 28 fan recommendations per game |
+| `bgg_Gameitems.csv` | ~114,000 rows | Full metadata: categories, mechanics, players, playtime, designer |
 
-**Diagrama simples:**
+**Simple diagram:**
 ```
 recommendations CSV  ──┐
-                        ├── join por bgg_id ──→ boardgames_1000.json
+                        ├── join by bgg_id ──→ boardgames_1000.json
 bgg_Gameitems CSV    ──┘
 ```
 
-*"Os dois arquivos são joinados pelo ID do BGG. Para cada um dos 1 000 jogos do ranking, buscamos os metadados no arquivo maior. O resultado é o JSON que alimenta todas as visualizações."*
+*"The two files are joined by the BGG game ID. For each of the 1,000 ranked games, we look up the full metadata from the larger file. The resulting JSON feeds all the visualizations."*
 
 ---
 
-## SLIDE 4 — Task 1: Dados sujos e tratamento
+## SLIDE 4 — Task 1: Dirty Data and Handling
 
-**Título:** Task 1 – Qualidade dos dados e estratégia de limpeza
+**Title:** Task 1 – Data Quality Issues and Cleaning Strategy
 
-**Tabela:**
+**Table:**
 
-| Problema | Casos | Tratamento |
-|----------|-------|------------|
-| Playtime inválido (0 ou negativo) | 1 | Imputed: 30 min |
-| Categorias ausentes | 2 | Lista vazia; primary = "Other" |
-| min_players > max_players | variável | Swap automático |
-| Recomendações duplicadas | variável | Deduplicação via Set |
-| Ano ausente | variável | null (mantido) |
-| Rating ausente | variável | Fallback 0 |
+| Issue | Cases | Strategy |
+|-------|-------|----------|
+| Invalid playtime (0 or negative) | 1 | Imputed: 30 min |
+| Missing categories | 2 | Empty list; primary = "Other" |
+| min_players > max_players | variable | Automatic swap |
+| Duplicate recommendations | variable | Deduplication via Set |
+| Missing year | variable | null (kept) |
+| Missing rating | variable | Fallback 0 |
 
-**Visual:** mostrar screenshot do painel "Data Quality" + "Cleaning strategy" da sidebar
+**Visual:** screenshot of the "Data Quality" + "Cleaning strategy" sidebar panels
 
-*"Os dados eram relativamente limpos — apenas 3 problemas estruturais nos 1 000 registros. O painel na sidebar mostra os contadores em tempo real conforme o analista muda o top-X."*
-
----
-
-## SLIDE 5 — Task 1: Top-X dinâmico
-
-**Título:** Task 1 – Filtragem dinâmica: Top-X games
-
-**Conteúdo:**
-- Seletor na sidebar: **100 / 200 / 500 / 1000**
-- Mudança dispara `requestData` via WebSocket
-- Servidor recomputa k-means + PageRank para o novo subconjunto
-- Todas as 5 views atualizam simultaneamente
-
-**Visual:** GIF ou screenshot do seletor com os 4 valores
-
-*"O analista pode alternar entre o top-100 (mais competitivo, mais denso) e o top-1000 (mais variado, grafo muito maior). O k-means e o PageRank são recomputados automaticamente."*
+*"The data was relatively clean — only 3 structural issues across the 1,000 records. The sidebar panel shows live counters as the analyst changes the top-X filter."*
 
 ---
 
-## SLIDE 6 — Task 2: A tarefa analítica (5-tuple)
+## SLIDE 5 — Task 1: Dynamic Top-X Filter
 
-**Título:** Task 2 – K-Means: Tarefa Analítica (Trend)
+**Title:** Task 1 – Dynamic Filtering: Top-X Games
 
-**5-tuple em destaque:**
+**Content:**
+- Sidebar selector: **100 / 200 / 500 / 1,000**
+- Change triggers `requestData` via WebSocket
+- Server recomputes k-means + PageRank for the new subset
+- All 5 views update simultaneously
+
+*"The analyst can switch between top-100 (most competitive, denser cluster structure) and top-1000 (more variety, much larger graph). K-Means and PageRank are recomputed automatically."*
+
+---
+
+## SLIDE 6 — Task 2: The Analysis Task (5-tuple)
+
+**Title:** Task 2 – K-Means: Analysis Task (Trend)
+
+**5-tuple highlighted:**
 
 | | |
 |-|-|
-| **Ação** | Identify — Trend |
-| **Quem** | Analista de jogos de tabuleiro |
-| **Como** | K-Means++ em 14 dimensões |
-| **Dados** | Rating, playtime, mecânicas, minage, jogadores, log(reviews) + 8 one-hot categorias |
-| **Por quê** | Descobrir se jogos similares em complexidade e tema formam grupos coesos com padrões distintos de rating e duração |
+| **Action** | Identify — Trend |
+| **Who** | Board game analyst |
+| **How** | K-Means++ in 14 dimensions |
+| **Data** | Rating, playtime, mechanics, minage, players, log(reviews) + 8 one-hot categories |
+| **Why** | Discover whether games similar in complexity and theme form cohesive groups with distinct rating and duration patterns |
 
-**Pergunta de pesquisa:**
-> *"Jogos com mecânicas e categorias similares também se agrupam em faixas distintas de rating e playtime?"*
+**Research question:**
+> *"Do board games with similar mechanics and categories also cluster into distinct rating and playtime bands?"*
 
-*"A tarefa é identificar uma tendência. O k-means faz o agrupamento em 14 dimensões, e a gente projeta em 2D para ver se os clusters fazem sentido visualmente."*
+*"The task is to identify a trend. K-Means does the grouping in 14 dimensions, and we project it onto 2D to see if the clusters make visual sense."*
 
 ---
 
-## SLIDE 7 — Task 2: Codificação e algoritmo
+## SLIDE 7 — Task 2: Features and Algorithm
 
-**Título:** Task 2 – Features e K-Means++
+**Title:** Task 2 – Feature Encoding and K-Means++
 
-**Bloco esquerdo — 14 dimensões:**
+**Left block — 14 dimensions:**
 ```
-Numéricas (norm. [0,1])       One-hot (top-8 categorias)
+Numeric (norm. [0,1])         One-hot (top-8 categories)
 ─────────────────────         ──────────────────────────
-rating_value                  Economic    (0 ou 1)
-playtime_avg                  Fantasy     (0 ou 1)
-num_mechanics                 Sci-Fi      (0 ou 1)
-minage                        Adventure   (0 ou 1)
-players_avg                   Fighting    (0 ou 1)
-log10(reviews + 1)            Exploration (0 ou 1)
-                              Civilization(0 ou 1)
-                              Card Game   (0 ou 1)
+rating_value                  Economic    (0 or 1)
+playtime_avg                  Fantasy     (0 or 1)
+num_mechanics                 Sci-Fi      (0 or 1)
+minage                        Adventure   (0 or 1)
+players_avg                   Fighting    (0 or 1)
+log10(reviews + 1)            Exploration (0 or 1)
+                              Civilization(0 or 1)
+                              Card Game   (0 or 1)
 ```
 
-**Bloco direito — por que Manhattan:**
-- Euclidiana eleva ao quadrado → favorece outliers numéricos
-- Manhattan distribui peso igual entre dimensões contínuas e binárias
-- Analista pode testar Euclidiana / Chebyshev com 1 clique
+**Right block — why Manhattan:**
+- Euclidean squares differences → over-weights continuous outliers
+- Manhattan distributes equal weight between continuous and binary dimensions
+- Analyst can test Euclidean / Chebyshev with 1 click
 
-*"A escolha da métrica importa aqui porque temos dimensões binárias (0 ou 1) misturadas com contínuas. Manhattan trata ambas de forma mais uniforme."*
-
----
-
-## SLIDE 8 — Task 2: Visualização
-
-**Título:** Task 2 – K-Means: Visualização
-
-**Visual:** screenshot do gráfico K-Means
-
-**Elementos com legendas anotadas:**
-- Pontos coloridos por cluster (paleta independente da paleta de categorias)
-- Contorno tracejado = convex hull (extensão do cluster em 2D)
-- Diamante = centróide (posição média do cluster nos eixos de exibição)
-- Legenda: `C1 n=33 · Short · Complex · Economic`
-- Eixos: Rating (Y) × Avg Playtime (X)
-- Nota de rodapé: "clustering usa as 14 dimensões; os eixos são apenas a projeção"
-
-*"Os eixos são Rating e Playtime porque são os mais interpretáveis. O convex hull deixa claro onde cada cluster ocupa espaço, e o diamante marca o centro. A legenda mostra o perfil automático de cada cluster."*
+*"The choice of metric matters here because we have binary dimensions (0 or 1) mixed with continuous ones. Manhattan treats both more uniformly."*
 
 ---
 
-## SLIDE 9 — Task 3: A tarefa analítica (5-tuple)
+## SLIDE 8 — Task 2: Visualization
 
-**Título:** Task 3 – PageRank: Tarefa Analítica (Graph · Significance)
+**Title:** Task 2 – K-Means Visualization
+
+**Visual:** screenshot of the K-Means chart
+
+**Elements with annotations:**
+- Colored dots by cluster (palette independent from category palette)
+- Dashed outline = convex hull (cluster extent in 2D)
+- Diamond = centroid (cluster mean position on display axes)
+- Legend: `C1 n=33 · Short · Complex · Economic`
+- Axes: Rating (Y) × Avg Playtime (X)
+- Footer note: "clustering uses all 14 dimensions; axes are display projection only"
+
+*"The axes are Rating and Playtime because they are the most interpretable. The convex hull makes it clear where each cluster occupies space, and the diamond marks the center. The legend shows the auto-generated profile for each cluster."*
+
+---
+
+## SLIDE 9 — Task 3: The Analysis Task (5-tuple)
+
+**Title:** Task 3 – PageRank: Analysis Task (Graph · Significance)
 
 **5-tuple:**
 
 | | |
 |-|-|
-| **Ação** | Describe / Correlate |
-| **Quem** | Analista / recomendador de jogos |
-| **Como** | Force-directed graph com nó ∝ PageRank; clique revela features compartilhadas |
-| **Dados** | Scores PageRank, arestas fans_liked, categoria, mecânicas, rating |
-| **Por quê** | Identificar os jogos-chave na rede e descrever o que eles têm em comum com os jogos que eles recomendam |
+| **Action** | Describe / Correlate |
+| **Who** | Board game analyst / recommender |
+| **How** | Force-directed graph with node size ∝ PageRank; click reveals shared features panel |
+| **Data** | PageRank scores, fans_liked edges, category, mechanics, rating |
+| **Why** | Identify key games in the recommendation network and describe what they share with the games they recommend |
 
-**Pergunta de pesquisa:**
-> *"Quais características correlacionam com ser um hub central na rede de recomendações — e o que um jogo-chave tem em comum com seus recomendados?"*
-
----
-
-## SLIDE 10 — Task 3: Visualização e interação
-
-**Título:** Task 3 – Grafo de Recomendações (PageRank)
-
-**Visual:** screenshot do grafo PageRank com anotações
-
-**Elementos anotados:**
-- Nó grande = alto PageRank (significância)
-- Anel dourado = top-10 nós mais significativos
-- Aresta com seta = A recomenda B (fans_liked)
-- Cor = categoria primária do jogo (mesma paleta das outras views)
-- Zoom + pan + drag disponíveis
-
-**Ao clicar num nó:**
-- Anel **amber espesso** = jogo selecionado
-- Anel **teal** = recomendados diretos desse jogo
-- Outros nós → faded
-- Painel lateral: PageRank score · lista de recomendados · shared features
-
-*"O tamanho do nó é o que mostra a significância. Os anéis dourados são os top-10 sempre visíveis. Ao clicar num jogo, os recomendados ficam em teal, e a sidebar mostra as features em comum — isso responde diretamente a tarefa de correlação."*
+**Research question:**
+> *"Which characteristics correlate with being a central hub in the recommendation network — and what does a key game have in common with its recommendees?"*
 
 ---
 
-## SLIDE 11 — Task 4: Linked highlighting
+## SLIDE 10 — Task 3: Visualization and Interaction
 
-**Título:** Task 4 – Todas as views conectadas
+**Title:** Task 3 – Recommendation Graph (PageRank)
 
-**Diagrama de fluxo:**
+**Visual:** screenshot of the PageRank graph with annotations
+
+**Annotated elements:**
+- Large node = high PageRank (significance)
+- Gold ring = top-10 most significant games (always labeled)
+- Arrow edge = A recommends B (fans_liked)
+- Color = primary game category (same palette as other views)
+- Zoom + pan + drag available
+
+**On clicking a node:**
+- **Thick amber ring** = selected game
+- **Teal ring** = direct recommendees of that game
+- Other nodes → faded
+- Sidebar panel: PageRank score · list of recommendees · shared features tags
+
+*"Node size is what shows significance. The gold rings mark the top-10 that are always visible. When you click a game, its recommendees get a teal ring, and the sidebar shows shared features — this directly answers the correlation task."*
+
+---
+
+## SLIDE 11 — Task 4: Linked Highlighting
+
+**Title:** Task 4 – All Views Connected
+
+**Flow diagram:**
 ```
 K-Means click  ──┐
 PageRank click ──┼──→  highlightIds (Set<id>)  ──→  highlightPC()
 Bubble click   ──┘                                   highlightBubble()
                                                      highlightKMeans()
 PC brush  ─────────→  brushFilter  (Set<id>)  ──→  highlightPageRank()
-                                                     highlightChord()  ← redesenhado
+                                                     highlightChord()  ← redrawn
 ```
 
-**3 modos de seleção:**
-1. **Click em K-Means** → destaca o cluster inteiro
-2. **Click em PageRank** → destaca o jogo + seus recomendados
-3. **Brush no PC** → filtra um intervalo de qualquer atributo numérico
+**3 selection modes:**
+1. **Click in K-Means** → highlights the entire cluster
+2. **Click in PageRank** → highlights the game + its direct recommendees
+3. **Brush in Parallel Coordinates** → filters any numeric attribute range
 
-*"Qualquer seleção em qualquer view propaga para todas as outras. O chord é especial: em vez de só fazer fade, ele é redesenhado com apenas as arestas dos jogos selecionados, revelando as mecânicas e categorias dominantes do subconjunto."*
-
----
-
-## SLIDE 12 — Demo script (anotações internas)
-
-**Título:** [SLIDE INTERNO – NÃO APRESENTAR] Roteiro da demo ao vivo
-
-**Sequência sugerida (5–7 minutos):**
-
-1. **Abrir o dashboard** em `http://localhost:3000` com Top 100 / k=5 / Euclidean
-   - Apontar os 4 painéis + chord em baixo
-   - Mostrar "Data Quality" na sidebar
-
-2. **Interação com K-Means:**
-   - Mover o slider de k=5 para k=3 → mostrar clusters mudando
-   - Trocar métrica para Manhattan → mostrar diferença nos clusters
-   - Voltar para k=5 Euclidean
-   - **Clicar num ponto de cluster grande** (ex.: cluster Economic/Short)
-   - Mostrar como PC, Bubble, PageRank e Chord respondem
-
-3. **Interação com PageRank:**
-   - Clicar num dos nós com anel dourado (ex.: Scythe ou Gloomhaven)
-   - Mostrar: amber no nó selecionado, teal nos recomendados
-   - Abrir sidebar: PageRank score, lista de recomendados, shared features
-   - Mostrar PC e Bubble destacados
-
-4. **Top-X dinâmico:**
-   - Trocar para Top 1000 → mostrar grafo PageRank muito mais denso
-   - Mostrar Data Quality aumentando
-
-5. **Brush no Parallel Coordinates:**
-   - Arrastar um brush em "Rating" para filtrar jogos com rating > 8.5
-   - Mostrar quais jogos aparecem no K-Means e no grafo
-
-6. **Clear highlight:** botão na sidebar
+*"Any selection in any view propagates to all others. The chord is special: instead of just fading, it is redrawn with only the selected games' edges, revealing the dominant mechanics and categories of the subset."*
 
 ---
 
-## SLIDE 13 — Decisões de design
+## SLIDE 12 — Demo Script (internal notes)
 
-**Título:** Decisões de Design – Por que essas escolhas?
+**Title:** [INTERNAL SLIDE – DO NOT PRESENT] Live Demo Script
+
+**Suggested sequence (5–7 minutes):**
+
+1. **Open the dashboard** at `http://localhost:3000` with Top 100 / k=5 / Euclidean
+   - Point out the 4 panels + chord at the bottom
+   - Show "Data Quality" in the sidebar
+
+2. **K-Means interaction:**
+   - Move the slider from k=5 to k=3 → show clusters changing
+   - Switch metric to Manhattan → show difference in clusters
+   - Return to k=5 Euclidean
+   - **Click a dot from a large cluster** (e.g. the Economic/Short cluster)
+   - Show how PC, Bubble, PageRank and Chord all respond
+
+3. **PageRank interaction:**
+   - Click one of the gold-ring nodes (e.g. Scythe or Gloomhaven)
+   - Show: amber ring on selected node, teal rings on recommendees
+   - Open sidebar: PageRank score, list of recommendees, shared features
+   - Show PC and Bubble highlighted accordingly
+
+4. **Dynamic top-X:**
+   - Switch to Top 1000 → show much denser PageRank graph
+   - Show Data Quality counter increasing
+
+5. **Parallel Coordinates brush:**
+   - Drag a brush on "Rating" to filter games with rating > 8.5
+   - Show which games appear in K-Means and the graph
+
+6. **Clear highlight:** button in sidebar
+
+---
+
+## SLIDE 13 — Design Decisions
+
+**Title:** Design Decisions – Why These Choices?
 
 **4 cards:**
 
-**Scatter para K-Means**
-→ Rating × Playtime são os eixos mais interpretáveis; convex hull mostra extensão do cluster; clustering ocorre em 14D, exibição em 2D é uma projeção
+**Scatter for K-Means**
+→ Rating × Playtime are the most interpretable axes; convex hull shows cluster extent; clustering happens in 14D, display is a 2D projection
 
-**Manhattan como padrão**
-→ Dimensões one-hot (0/1) e contínuas têm pesos uniformes; Euclidiana favorece outliers numéricos ao elevar ao quadrado
+**Manhattan as default**
+→ Binary one-hot (0/1) and continuous dimensions get equal weight; Euclidean squares differences and over-weights continuous outliers
 
-**Force-directed para PageRank**
-→ Grafo não-hierárquico e esparso; hubs vão naturalmente ao centro; drag interativo; escala para 1 000 nós e 16 000+ arestas
+**Force-directed for PageRank**
+→ Non-hierarchical sparse graph; hubs naturally move to center; interactive drag; scales to 1,000 nodes and 16,000+ edges
 
-**Chord redesenhado vs. fade**
-→ Fade não muda proporções visuais; redesenho revela composição real de categorias e mecânicas do subconjunto selecionado
-
----
-
-## SLIDE 14 — Perguntas frequentes (prep interna)
-
-**Título:** [SLIDE INTERNO] Perguntas prováveis e respostas
-
-**P: Por que K-Means e não outro algoritmo de clustering (DBSCAN, hierárquico)?**
-R: K-Means é paramétrico (k controlável pelo analista), rápido para recalcular on-the-fly via WebSocket, e a visualização de clusters convexos é diretamente compatível com convex hull. DBSCAN não requer k mas não produz fronteiras convexas; hierárquico é mais lento e requer um dendrograma para visualizar.
-
-**P: Por que normalizar para [0,1] e não usar z-score?**
-R: Com one-hot, z-score produziria valores fora de [0,1] nas dimensões numéricas, desequilibrando o espaço. A normalização min-max garante que todas as dimensões (contínuas e binárias) têm o mesmo intervalo máximo de contribuição.
-
-**P: Por que usar o fans_liked para PageRank e não o rating?**
-R: fans_liked representa recomendações explícitas de outros jogadores — uma aresta direcional de "quem gosta de A tende a recomendar B". O rating é um atributo do jogo, não uma relação entre jogos. PageRank precisa de um grafo, não de scores individuais.
-
-**P: O que acontece se um jogo não tiver categorias?**
-R: O campo `categories` fica `[]` e `category_primary` vira `"Other"`. Para o k-means, o vetor one-hot tem zeros em todas as 8 posições de categoria. Para o chord, o jogo não contribui com arestas. Isso é flagged no painel Data Quality.
-
-**P: Como o linked highlight suporta a análise?**
-R: Exemplo: selecionar um cluster de jogos longos e complexos no K-Means destaca esses jogos no PC (confirmando rating alto e minage elevado), no PageRank (vendo quais são hubs) e no Chord (revelando "Worker Placement" como mecânica dominante). Isso cruza 3 análises em 1 interação.
-
-**P: Qual o custo computacional de recomputar k-means + PageRank?**
-R: Para top-100, k-means converge em <10 iterações (~5ms); PageRank em <20 iterações (~2ms). Para top-1000, o tempo sobe mas ainda é <500ms total, aceitável para uma operação on-demand via WebSocket.
+**Chord redrawn vs. faded**
+→ Fading does not change visual proportions; redrawing reveals the actual category and mechanic composition of the selected subset
 
 ---
 
-## SLIDE 15 — Encerramento
+## SLIDE 14 — Anticipated Questions (internal prep)
 
-**Título:** Obrigado
+**Title:** [INTERNAL SLIDE] Likely Questions and Answers
 
-**Conteúdo:**
-- Link do repositório / entrega ILIAS
-- *"Alguma pergunta?"*
+**Q: Why K-Means and not another algorithm (DBSCAN, hierarchical)?**
+A: K-Means is parametric (analyst controls k), fast enough to recompute on-demand via WebSocket, and convex hulls work naturally with K-Means clusters. DBSCAN does not require k but does not produce convex boundaries; hierarchical clustering is slower and requires a dendrogram to visualize.
+
+**Q: Why normalize to [0,1] and not use z-score?**
+A: With one-hot dimensions, z-score would produce values outside [0,1] for continuous dimensions, unbalancing the feature space. Min-max normalization ensures all dimensions — continuous and binary — share the same maximum range of contribution.
+
+**Q: Why use fans_liked for PageRank and not the game rating?**
+A: fans_liked represents explicit player recommendations — a directed edge "fans of A tend to also like B." Rating is an attribute of a single game, not a relationship between games. PageRank requires a graph, not individual scores.
+
+**Q: What happens if a game has no categories?**
+A: The `categories` field is stored as `[]` and `category_primary` becomes `"Other"`. For k-means, the one-hot vector has zeros in all 8 category positions. For the chord, the game contributes no edges. This is flagged in the Data Quality panel.
+
+**Q: How does linked highlighting support the analysis?**
+A: Example: selecting a cluster of long, complex games in K-Means highlights those games in the PC (confirming high rating and high minage), in the PageRank graph (seeing which are recommendation hubs), and in the Chord (revealing "Worker Placement" as the dominant mechanic). Three analyses in one interaction.
+
+**Q: What is the computational cost of recomputing k-means + PageRank?**
+A: For top-100, k-means converges in under 10 iterations (~5ms); PageRank in under 20 iterations (~2ms). For top-1000, the total is under 500ms — acceptable for an on-demand WebSocket request.
+
+---
+
+## SLIDE 15 — Closing
+
+**Title:** Thank You
+
+**Content:**
+- ILIAS submission link / repository
+- *"Any questions?"*

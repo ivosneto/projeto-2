@@ -4,124 +4,124 @@ Visual Analytics · Summer Semester 2026 · Universität zu Köln
 
 ---
 
-## Índice
+## Table of Contents
 
-1. [Estrutura do projeto](#estrutura)
-2. [Como instalar e executar](#execucao)
-3. [Task 1 – Dataset, dados sujos e pré-processamento](#task1)
-4. [Task 2 – K-Means clustering (Trend)](#task2)
-5. [Task 3 – PageRank e grafo de recomendação (Graph · Significance)](#task3)
-6. [Task 4 – Linked highlighting entre todas as views](#task4)
-7. [Decisões de design](#design)
-8. [Cobertura dos critérios de avaliação](#criterios)
+1. [Project Structure](#structure)
+2. [Installation and Setup](#setup)
+3. [Task 1 – Dataset, Dirty Data and Preprocessing](#task1)
+4. [Task 2 – K-Means Clustering (Trend)](#task2)
+5. [Task 3 – PageRank and Recommendation Graph (Graph · Significance)](#task3)
+6. [Task 4 – Linked Highlighting Across All Views](#task4)
+7. [Design Decisions](#design)
+8. [Grading Criteria Coverage](#criteria)
 
 ---
 
-## 1. Estrutura do projeto <a name="estrutura"></a>
+## 1. Project Structure <a name="structure"></a>
 
 ```
 Template/
 ├── data/
-│   ├── recommendations-2021-12-31.csv   # top-1000 games + até 28 recomendações de fãs
-│   ├── bgg_Gameitems.csv                # metadados completos (~114k jogos BGG)
-│   └── boardgames_1000.json             # dataset gerado pelo script de pré-processamento
+│   ├── recommendations-2021-12-31.csv   # top-1000 games + up to 28 fan recommendations each
+│   ├── bgg_Gameitems.csv                # full BGG metadata (~114k games)
+│   └── boardgames_1000.json             # generated dataset (output of preprocessing script)
 ├── src/
 │   ├── _server/
-│   │   ├── preprocess_data.mjs   # script único de geração do JSON a partir dos CSVs
-│   │   ├── preprocessing.js      # limpeza, encoding, k-means, pagerank, builders
-│   │   ├── kmeans.js             # K-Means++ com métricas euclidean/manhattan/chebyshev
-│   │   ├── pagerank.js           # PageRank com dangling nodes (α=0.85, ε=1e-6)
+│   │   ├── preprocess_data.mjs   # one-time CSV join and cleaning script
+│   │   ├── preprocessing.js      # cleaning, encoding, k-means, pagerank, view builders
+│   │   ├── kmeans.js             # K-Means++ with euclidean/manhattan/chebyshev metrics
+│   │   ├── pagerank.js           # PageRank with dangling node handling (α=0.85, ε=1e-6)
 │   │   └── static/
-│   │       └── server.js         # Socket.IO na porta 3231
+│   │       └── server.js         # Socket.IO on port 3231
 │   ├── _public/
-│   │   ├── index.js              # orquestração frontend, WebSocket, estado de highlight
-│   │   ├── parallel_coords.js    # Coordenadas paralelas com brush (Project 1)
+│   │   ├── index.js              # frontend orchestration, WebSocket, highlight state
+│   │   ├── parallel_coords.js    # Parallel Coordinates with brush (Project 1)
 │   │   ├── bubble_matrix.js      # Bubble scatter playtime × rating (Project 1)
-│   │   ├── chord.js              # Chord category × mechanic (Project 1)
+│   │   ├── chord.js              # Category × Mechanic chord diagram (Project 1)
 │   │   ├── kmeans_plot.js        # Scatter + convex hulls + centroids (Task 2)
-│   │   └── pagerank_graph.js     # Grafo force-directed com PageRank (Task 3)
+│   │   └── pagerank_graph.js     # Force-directed graph with PageRank (Task 3)
 │   └── html/
-│       └── template.html         # layout + controles da sidebar
+│       └── template.html         # layout + sidebar controls
 └── package.json
 ```
 
 ---
 
-## 2. Como instalar e executar <a name="execucao"></a>
+## 2. Installation and Setup <a name="setup"></a>
 
 ```bash
-# 1. Instalar dependências
+# 1. Install dependencies
 cd Template
 npm install
 
-# 2. Gerar o dataset (só precisa rodar uma vez)
+# 2. Generate the dataset (only needs to run once)
 node src/_server/preprocess_data.mjs
 
-# 3. Subir servidor de desenvolvimento
+# 3. Start the development server
 npm run dev
 ```
 
-Acesse em `http://localhost:3000`.
+Open `http://localhost:3000` in your browser.
 
-> **Portas:** webpack-dev-server na 3000 (frontend) · Socket.IO na 3231 (dados)
+> **Ports:** webpack-dev-server on 3000 (frontend) · Socket.IO on 3231 (data)
 
 ---
 
-## 3. Task 1 – Dataset, dados sujos e pré-processamento <a name="task1"></a>
+## 3. Task 1 – Dataset, Dirty Data and Preprocessing <a name="task1"></a>
 
-### Fontes de dados
+### Data Sources
 
-| Arquivo | Linhas | Conteúdo |
-|---------|--------|----------|
-| `recommendations-2021-12-31.csv` | 1 000 | Top-1000 do BGG (2021): rank, rating, nº votos, até 28 IDs de recomendação por jogo |
-| `bgg_Gameitems.csv` | ~113 904 | Metadados: categorias, mecânicas, nº jogadores, playtime, minage, designer, etc. |
+| File | Rows | Content |
+|------|------|---------|
+| `recommendations-2021-12-31.csv` | 1,000 | BGG top-1000 (2021): rank, average rating, number of votes, up to 28 fan recommendation IDs per game |
+| `bgg_Gameitems.csv` | ~113,904 | Full metadata: categories, mechanics, player count, playtime, minimum age, designer, etc. |
 
-### Join dos CSVs
+### CSV Join
 
-O script `src/_server/preprocess_data.mjs` é executado uma única vez para gerar `boardgames_1000.json`:
+The script `src/_server/preprocess_data.mjs` runs once to produce `boardgames_1000.json`:
 
 ```js
-// Lê os dois CSVs em paralelo
+// Read both CSVs in parallel
 const [recRows, itemRows] = await Promise.all([
   parseCSV('recommendations-2021-12-31.csv'),
   parseCSV('bgg_Gameitems.csv'),
 ]);
 
-// Indexa metadados por bgg_id
+// Index metadata by bgg_id
 const itemMap = new Map();
 for (const row of itemRows) {
   const id = Number(row.bgg_id);
   if (isFinite(id)) itemMap.set(id, row);
 }
 
-// Para cada jogo do ranking: join + limpeza
+// For each ranked game: join metadata and clean
 for (const rec of recRows) {
   const item = itemMap.get(Number(rec.ID)) || {};
-  // ... normalização e validação
+  // ... cleaning and normalization
   games.push({ id, title, year, rank, minplayers, maxplayers,
                minplaytime, maxplaytime, minage, rating, recommendations,
                types: { categories, mechanics }, credit: { designer } });
 }
 ```
 
-### Problemas de qualidade encontrados
+### Data Quality Issues and Handling
 
-| Problema | Jogos afetados | Estratégia de tratamento |
-|----------|---------------|--------------------------|
-| Playtime inválido (0 ou negativo) | 1 | Imputed: `minplaytime = 30`, `maxplaytime = minplaytime` |
-| Categorias ausentes | 2 | Armazenado como `[]`; `category_primary = "Other"` |
-| `min_players > max_players` | variável | Valores trocados (swap) automaticamente |
-| Recomendações duplicadas | variável | Deduplicadas com `Set` antes de persistir |
-| Ano ausente / não numérico | variável | Armazenado como `null`; flagged no painel |
-| Rating ausente | variável | Fallback `0`; flagged no painel |
-| Campos numéricos para k-means | todos | Normalizados para `[0, 1]` |
-| Categorias para k-means | todos | One-hot encoding (top-8 categorias) |
+| Issue | Games affected | Handling strategy |
+|-------|---------------|-------------------|
+| Invalid playtime (0 or negative) | 1 | Imputed: `minplaytime = 30`, `maxplaytime = minplaytime` |
+| Missing categories | 2 | Stored as `[]`; `category_primary = "Other"` |
+| `min_players > max_players` | variable | Values automatically swapped |
+| Duplicate recommendations | variable | Deduplicated using `Set` before storing |
+| Missing or non-numeric year | variable | Stored as `null`; flagged in sidebar panel |
+| Missing rating | variable | Fallback to `0`; flagged in sidebar panel |
+| Numeric fields for k-means | all | Normalized to `[0, 1]` |
+| Categorical fields for k-means | all | One-hot encoded (top-8 categories) |
 
-O painel **Data Quality** na sidebar mostra em tempo real os contadores para o top-X selecionado. Abaixo dos contadores, a seção **Cleaning strategy** lista o tratamento aplicado a cada tipo de problema.
+The **Data Quality** panel in the sidebar shows live counters for the currently selected top-X. Below the counters, the **Cleaning strategy** section lists the treatment applied to each issue type.
 
-### Suporte ao filtro top-X dinâmico
+### Dynamic Top-X Filtering
 
-O JSON contém 1 000 jogos ordenados por rank. A função `loadAndClean` fatia os primeiros `topX` sem recarregar o arquivo:
+The JSON contains 1,000 games sorted by rank. The `loadAndClean` function slices the first `topX` without reloading the file:
 
 ```js
 // preprocessing.js
@@ -132,7 +132,7 @@ export function loadAndClean(rawData, topX = 100) {
 }
 ```
 
-O seletor na sidebar dispara um `requestData` via WebSocket; o servidor recomputa k-means e PageRank para o novo subconjunto e emite `freshData`:
+The sidebar selector triggers a WebSocket `requestData` event; the server recomputes k-means and PageRank for the new subset and emits `freshData`:
 
 ```js
 // index.js
@@ -149,35 +149,35 @@ function requestData() {
 
 ---
 
-## 4. Task 2 – K-Means clustering (Trend) <a name="task2"></a>
+## 4. Task 2 – K-Means Clustering (Trend) <a name="task2"></a>
 
-### 5-tuple de análise
+### Analysis Task (5-tuple)
 
-| Componente | Valor |
-|------------|-------|
-| **Who** | Analista de jogos de tabuleiro |
-| **What (Action)** | **Identify** — verificar se existe uma **Trend** |
-| **How** | K-Means++ no espaço N-dimensional de features; projetado em Rating × Playtime |
-| **With what data** | 6 features numéricas + 8 one-hot de categorias (14 dimensões) |
-| **Why** | Descobrir se jogos similares em complexidade, qualidade e tema formam grupos coesos — e se esses grupos se manifestam em faixas distintas de rating e tempo de jogo no ranking top-X |
+| Component | Value |
+|-----------|-------|
+| **Who** | Board game analyst |
+| **What (Action)** | **Identify** — check for a **Trend** |
+| **How** | K-Means++ in N-dimensional feature space; projected onto Rating × Playtime |
+| **With what data** | 6 numeric features + 8 one-hot category dimensions (14 total) |
+| **Why** | Discover whether games that are similar in complexity, quality and theme form cohesive groups — and whether those groups manifest as distinct rating/playtime bands within the top-X ranking |
 
-**Tarefa em linguagem natural:**
-> "Existe uma tendência de que jogos com mecânicas e categorias similares (alta complexidade + mesmo tema) também se agrupem em faixas distintas de rating e tempo de jogo? E essa estrutura de clusters se mantém ao variar k ou a métrica de distância?"
+**Analysis task in plain language:**
+> "Is there a trend where board games with similar mechanics and categories also cluster into distinct rating and playtime bands? And does this cluster structure remain stable when varying k or the distance metric?"
 
-### Codificação das features
+### Feature Encoding
 
-Campos numéricos são normalizados para `[0, 1]`. Categorias são codificadas como one-hot binário, garantindo peso uniforme em qualquer métrica de distância:
+Numeric fields are normalized to `[0, 1]`. Categories are binary one-hot encoded, ensuring all dimensions have equal weight under any distance metric:
 
 ```js
 // preprocessing.js – encodeForKMeans()
 const featureNames = [
-  'Rating',       // normalizado [0,1]
-  'Playtime',     // normalizado [0,1]
-  '#Mechanics',   // normalizado [0,1]
-  'Min Age',      // normalizado [0,1]
-  'Players',      // normalizado [0,1]
-  'log(Reviews)', // log10(num_reviews + 1), normalizado [0,1]
-  ...top8cats.map(c => `cat:${c}`),  // 0 ou 1 (one-hot)
+  'Rating',       // normalized [0,1]
+  'Playtime',     // normalized [0,1]
+  '#Mechanics',   // normalized [0,1]
+  'Min Age',      // normalized [0,1]
+  'Players',      // normalized [0,1]
+  'log(Reviews)', // log10(num_reviews + 1), normalized [0,1]
+  ...top8cats.map(c => `cat:${c}`),  // 0 or 1 (one-hot)
 ];
 
 const vectors = games.map((g, gi) => [
@@ -191,7 +191,7 @@ const vectors = games.map((g, gi) => [
 ]);
 ```
 
-### Inicialização K-Means++
+### K-Means++ Initialization
 
 ```js
 // kmeans.js – kmeanspp()
@@ -212,25 +212,25 @@ function kmeanspp(points, k, distFn) {
 }
 ```
 
-A inicialização K-Means++ garante centroides iniciais espaçados, reduzindo iterações e evitando mínimos locais ruins.
+K-Means++ initialization guarantees well-spaced initial centroids, reducing the number of iterations needed and avoiding poor local minima.
 
-### Métricas de distância
+### Distance Metrics
 
 ```js
 // kmeans.js
-export function euclidean(a, b) {   // padrão – amplifica grandes desvios (quadrático)
+export function euclidean(a, b) {   // standard — amplifies large deviations (squared)
   let sum = 0;
   for (let i = 0; i < a.length; i++) sum += (a[i] - b[i]) ** 2;
   return Math.sqrt(sum);
 }
 
-export function manhattan(a, b) {   // robusta com one-hot – soma desvios absolutos
+export function manhattan(a, b) {   // robust with one-hot — sums absolute deviations
   let sum = 0;
   for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i]);
   return sum;
 }
 
-export function chebyshev(a, b) {   // sensível ao maior desvio individual
+export function chebyshev(a, b) {   // sensitive to the single largest deviation
   let max = 0;
   for (let i = 0; i < a.length; i++) {
     const d = Math.abs(a[i] - b[i]);
@@ -240,18 +240,18 @@ export function chebyshev(a, b) {   // sensível ao maior desvio individual
 }
 ```
 
-**Por que Manhattan como ponto de partida:** com dimensões one-hot binárias (0/1) misturadas com contínuas, Manhattan distribui o peso de forma mais uniforme que Euclidiana, que eleva ao quadrado e favorece outliers em dimensões contínuas.
+**Why Manhattan as starting point:** with binary one-hot dimensions (0/1) mixed with continuous fields, Manhattan distributes weight more uniformly than Euclidean, which squares differences and over-weights outliers in continuous dimensions.
 
-### Visualização
+### Visualization
 
-- **Eixos:** Rating (Y) × Avg Playtime (X) — os dois mais interpretáveis; o clustering ocorre nas 14 dimensões
-- **Cor:** paleta de clusters fixa (diferente da paleta de categorias usada nas outras views, para não confundir)
-- **Convex hull** por cluster: mostra extensão e sobreposição no espaço 2D
-- **Centroid (diamante):** posição média de cada cluster nos eixos de exibição
-- **Legenda:** cada cluster exibe `C1 n=33`, o perfil gerado automaticamente (ex.: `Short · Complex`) e a categoria dominante
+- **Display axes:** Rating (Y) × Avg Playtime (X) — most interpretable; clustering occurs in all 14 dimensions
+- **Color:** fixed cluster palette (different from the category palette used in other views)
+- **Convex hull** per cluster: shows extent and overlap in 2D projection
+- **Centroid diamond:** mean position of each cluster on the display axes
+- **Legend:** each cluster shows `C1 n=33`, an auto-generated profile (e.g. `Short · Complex`) and the dominant category
 
 ```js
-// kmeans_plot.js – perfil descritivo automático
+// kmeans_plot.js – automatic descriptive profile
 function _clusterProfile(c) {
   const time  = c.avg_playtime  >= 150 ? 'Long'   : c.avg_playtime  >= 75 ? 'Medium' : 'Short';
   const cmplx = c.avg_mechanics >= 6   ? 'Complex' : c.avg_mechanics >= 4 ? 'Standard' : 'Light';
@@ -259,33 +259,33 @@ function _clusterProfile(c) {
 }
 ```
 
-### Interação
+### Interaction
 
-| Controle | Ação | Custo |
-|----------|------|-------|
-| Slider k (2–12) | Recomputa k-means via WebSocket | 1 arraste |
-| Dropdown métrica | Recomputa com nova métrica | 1 clique |
-| Clique num ponto | Destaca todo o cluster em todas as 5 views | 1 clique |
-| Clique de novo | Toggle: limpa o highlight | 1 clique |
+| Control | Action | Interaction cost |
+|---------|--------|-----------------|
+| k slider (2–12) | Recomputes k-means via WebSocket | 1 drag |
+| Metric dropdown | Recomputes with new metric | 1 click |
+| Click a dot | Highlights the entire cluster in all 5 views | 1 click |
+| Click again | Toggle: clears the highlight | 1 click |
 
 ---
 
-## 5. Task 3 – PageRank e grafo de recomendação <a name="task3"></a>
+## 5. Task 3 – PageRank and Recommendation Graph <a name="task3"></a>
 
-### 5-tuple de análise
+### Analysis Task (5-tuple)
 
-| Componente | Valor |
-|------------|-------|
-| **Who** | Analista / recomendador de jogos |
+| Component | Value |
+|-----------|-------|
+| **Who** | Board game analyst / recommender |
 | **What (Action)** | **Describe / Correlate** |
-| **How** | Force-directed graph com nó ∝ PageRank; arestas = recomendações; clique revela painel de features compartilhadas |
-| **With what data** | Scores de significância (PageRank), arestas `fans_liked`, features dos jogos (categoria, mecânicas, rating) |
-| **Why** | Identificar jogos-chave na rede de recomendações e descrever quais características (categoria, mecânica, complexidade) correlacionam com alta significância e com ser frequentemente recomendado a partir dos hubs |
+| **How** | Force-directed graph with node size ∝ PageRank; click reveals shared features panel |
+| **With what data** | PageRank significance scores, `fans_liked` edges, game features (category, mechanics, rating) |
+| **Why** | Identify key games in the recommendation network and describe which characteristics (category, mechanics, complexity) correlate with high significance and with being frequently recommended from hub games |
 
-**Tarefa em linguagem natural:**
-> "Quais características (categoria, mecânicas, rating, complexidade) têm forte correlação com um jogo ser um hub central na rede de recomendações — e o que um jogo-chave tem em comum com os jogos que ele recomenda?"
+**Analysis task in plain language:**
+> "Which characteristics correlate with a game being a central hub in the recommendation network — and what does a key game have in common with the games it recommends?"
 
-### Construção do grafo
+### Graph Construction
 
 ```js
 // preprocessing.js – buildPageRankGraph()
@@ -295,31 +295,29 @@ for (const g of games) {
   graph[src] = [];
   for (const fl of g.fans_liked) {
     const dst = String(fl);
-    if (ids.has(dst) && dst !== src)   // apenas arestas dentro do dataset
+    if (ids.has(dst) && dst !== src)   // only edges within the dataset
       graph[src].push(dst);
   }
 }
 const pr_scores = pagerank(graph);  // α=0.85, ε=1e-6
 ```
 
-| Top-X | Nós | Arestas |
-|-------|-----|---------|
-| 100   | 100 | 936     |
-| 1000  | 1000 | 16 329 |
+| Top-X | Nodes | Edges |
+|-------|-------|-------|
+| 100   | 100   | 936   |
+| 1000  | 1000  | 16,329 |
 
-### Algoritmo PageRank
+### PageRank Algorithm
 
 ```js
 // pagerank.js
 export function pagerank(graph, alpha = 0.85, eps = 1e-6, iter = 100) {
-  // Inicialização uniforme: 1/N
   let scores = new Float64Array(N).fill(1 / N);
   const teleport = (1 - alpha) / N;
 
   for (let it = 0; it < iter; it++) {
     const next = new Float64Array(N).fill(teleport);
 
-    // Dangling nodes: distribuem rank igualmente para todos
     let dangling = 0;
     for (let i = 0; i < N; i++) if (outDeg[i] === 0) dangling += scores[i];
     const danglingContrib = (alpha * dangling) / N;
@@ -333,35 +331,29 @@ export function pagerank(graph, alpha = 0.85, eps = 1e-6, iter = 100) {
     let delta = 0;
     for (let i = 0; i < N; i++) delta += Math.abs(next[i] - scores[i]);
     scores = next;
-    if (delta < eps) break;  // convergência
+    if (delta < eps) break;
   }
 }
 ```
 
-### Visualização (Force-directed graph)
+### Visualization (Force-Directed Graph)
 
-- **Raio do nó ∝ PageRank** (escala sqrt para evitar dominância visual de hubs)
-- **Anel dourado** nos top-10 nós + label sempre visível → deixa imediatamente claro quais são os jogos mais significativos
-- **Arestas direcionadas** com seta: A → B = "fãs de A também gostam de B"
-- **Cor por categoria** (paleta consistente com as demais views)
-- **Zoom + pan** via `d3.zoom` · **drag** nos nós para reorganizar regiões
+- **Node radius ∝ PageRank** (sqrt scale to prevent visual dominance of hubs)
+- **Gold ring** on top-10 nodes + always-visible label
+- **Directed edges with arrows:** A → B means "fans of A also like B"
+- **Color by category** (consistent palette across all views)
+- **Zoom + pan** via `d3.zoom` · **Drag** nodes to reorganize
 
-### Clique num nó – diferenciação visual e painel de detalhe
+### Node Click – Visual Differentiation and Detail Panel
 
 ```js
 // pagerank_graph.js – selectPageRankNode()
-export function selectPageRankNode(selectedId, recIds) {
-  _selectedId = selectedId != null ? String(selectedId) : null;
-  _recIds     = recIds ? new Set([...recIds].map(String)) : new Set();
-  _applySelectionStyles();
-}
-
 function _applySelectionStyles() {
   _nodeSelection
     .attr('stroke', d => {
-      if (_selectedId && d.id === _selectedId) return '#fbbf24'; // amber – jogo selecionado
-      if (_selectedId && _recIds.has(d.id))     return '#38bdf8'; // teal  – recomendados diretos
-      return _topIds.has(d.id) ? '#f5c518' : '#1a1d27';           // gold top-10 / default
+      if (_selectedId && d.id === _selectedId) return '#fbbf24'; // amber – selected game
+      if (_selectedId && _recIds.has(d.id))     return '#38bdf8'; // teal  – direct recommendees
+      return _topIds.has(d.id) ? '#f5c518' : '#1a1d27';
     })
     .attr('stroke-width', d => {
       if (_selectedId && d.id === _selectedId) return 4;
@@ -371,47 +363,29 @@ function _applySelectionStyles() {
 }
 ```
 
-Ao clicar num nó, o painel **Selected Game** aparece na sidebar com:
-- Título, rank e rating do jogo
-- PageRank score
-- Lista dos jogos que ele recomenda (presentes no dataset)
-- Tags de categorias e mecânicas compartilhadas com os recomendados
+Clicking a node shows the **Selected Game** panel in the sidebar with title, rank, rating, PageRank score, list of recommendees, and shared category/mechanic tags.
 
 ---
 
-## 6. Task 4 – Linked highlighting <a name="task4"></a>
+## 6. Task 4 – Linked Highlighting <a name="task4"></a>
 
-### Arquitetura
-
-`index.js` mantém dois estados globais que propagam para todas as 5 views:
+### Architecture
 
 ```
-[K-Means click]   ─┐
-[PageRank click]  ─┼──→  highlightIds: Set<id> | null  ──→  applyHighlightToAll()
-[Bubble click]    ─┘                                              │
-                                                                  ├──→ highlightPC()
-[PC brush]  ──────────→  brushFilter:  Set<id> | null  ──→  applyBrushToAll()
-                                                                  ├──→ highlightBubble()
-                                                                  ├──→ highlightKMeans()
-                                                                  ├──→ highlightPageRank()
-                                                                  └──→ highlightChord()
+[K-Means click]   ──┐
+[PageRank click]  ──┼──→  highlightIds: Set<id> | null  ──→  applyHighlightToAll()
+[Bubble click]    ──┘                                              │
+                                                                   ├──→ highlightPC()
+[PC brush]  ────────────→  brushFilter:  Set<id> | null            ├──→ highlightBubble()
+                                                                   ├──→ highlightKMeans()
+                                                                   ├──→ highlightPageRank()
+                                                                   └──→ highlightChord()
 ```
+
+### Chord Diagram is Redrawn, Not Just Faded
 
 ```js
-// index.js
-function applyHighlightToAll() {
-  highlightPC(highlightIds);
-  highlightBubble(highlightIds);
-  highlightKMeans(highlightIds);
-  highlightPageRank(highlightIds);
-  highlightChord(highlightIds);
-}
-```
-
-### O chord é redesenhado, não apenas faded
-
-```js
-// chord.js – highlightChord()
+// chord.js
 export function highlightChord(ids) {
   if (!ids) { _render(_allEdges); return; }
   const filtered = _allEdges.filter(e => ids.has(e.game_id));
@@ -419,74 +393,50 @@ export function highlightChord(ids) {
 }
 ```
 
-Redesenhar (em vez de fade) muda as proporções dos arcos, revelando quais categorias e mecânicas dominam o subconjunto selecionado — informação que um simples fade não transmite.
+Redrawing changes arc proportions, revealing which categories and mechanics dominate the selected subset — information that a simple fade cannot convey.
 
-### Toggle e limpeza
+### Example Analysis Workflow
 
-```js
-// Toggle: segundo clique no mesmo conjunto limpa o highlight
-function toggleHighlight(ids) {
-  highlightIds = (highlightIds && setsEqual(highlightIds, ids)) ? null : ids;
-  applyHighlightToAll();
-}
-
-// Botão "Clear highlight" reseta tudo (1 clique)
-function clearAll() {
-  brushFilter = null; highlightIds = null;
-  applyHighlightToAll();
-  filterBubble(null); highlightChord(null);
-  showGameDetail(null); selectPageRankNode(null, null);
-}
-```
-
-### Exemplo de análise com linked highlighting
-
-1. **No K-Means:** clique num jogo de alta complexidade (longa duração, muitas mecânicas)
-   → destaca o cluster inteiro em todas as views
-2. **No Parallel Coordinates:** confirme que o cluster tem rating elevado e minage alto
-3. **No Chord:** veja que "Worker Placement" e "Hand Management" dominam o chord redesenhado
-4. **No PageRank:** identifique quantos desses jogos são hubs de recomendação (anéis grandes)
-5. **No Bubble Matrix:** veja a distribuição de playtime vs. rating do cluster
+1. **In K-Means:** click a game from a high-complexity cluster → highlights the cluster in all 5 views
+2. **In Parallel Coordinates:** confirm high rating and high minimum age
+3. **In Chord:** see "Worker Placement" dominate the redrawn diagram
+4. **In PageRank:** identify which games in the cluster are recommendation hubs
+5. **In Bubble Matrix:** observe the playtime vs. rating distribution of the cluster
 
 ---
 
-## 7. Decisões de design <a name="design"></a>
+## 7. Design Decisions <a name="design"></a>
 
-### Scatter plot para k-means
-Rating × Playtime são os dois eixos mais interpretáveis. O clustering ocorre em 14 dimensões, mas projetá-lo em 2D permite comparar a coesão visual dos clusters e detectar overlaps. O convex hull torna explícito o espaço de cada cluster.
+**Scatter for K-Means:** Rating × Playtime are the most interpretable axes. Clustering occurs in 14 dimensions, but projecting to 2D allows visual comparison of cluster cohesion and overlap. The convex hull makes each cluster's extent explicit.
 
-### Manhattan como padrão para k-means
-Com dimensões one-hot binárias (0/1) misturadas com contínuas, Manhattan distribui o peso de forma mais uniforme que Euclidiana (que eleva ao quadrado e favorece outliers em dimensões contínuas). O analista pode mudar para Euclidiana ou Chebyshev via dropdown.
+**Manhattan as default metric:** With binary one-hot dimensions (0/1) mixed with continuous fields, Manhattan distributes weight more uniformly than Euclidean, which squares differences and over-weights outliers in continuous dimensions.
 
-### Force-directed para pagerank
-O grafo de recomendações é não-hierárquico e esparso. O layout por força posiciona naturalmente os hubs mais ao centro, e o drag interativo permite reorganizar regiões de interesse. Matriz de adjacência seria ilegível para top-500/1000.
+**Force-directed for PageRank:** The recommendation graph is non-hierarchical and sparse. Force layout naturally positions high-connectivity hubs toward the center, and interactive drag allows reorganizing regions of interest. An adjacency matrix would be unreadable at top-500/1000 scale.
 
-### Chord redesenhado vs. fade
-Um fade não muda as proporções visuais — não há nova informação. Redesenhar o chord com apenas os edges do subconjunto selecionado altera as proporções dos arcos e ribbons, revelando a composição de categorias e mecânicas do grupo.
+**Chord redrawn vs. faded:** Fading arcs does not change visual proportions — no new information is revealed. Redrawing the chord matrix with only the selected games' edges changes arc and ribbon proportions, showing the category and mechanic composition of the group.
 
-### Por que manter as views do Project 1
-O enunciado do Project 2 exige que o linked highlighting inclua as visualizações do Project 1. As views de PC e Bubble Matrix servem como contexto comparativo: ao selecionar um cluster no k-means, o analista pode imediatamente ver como esses jogos se distribuem nos eixos numéricos do PC e no espaço playtime × rating do Bubble.
+**Keeping Project 1 views:** The Project 2 specification requires linked highlighting to include Project 1 visualizations. Parallel Coordinates and Bubble Matrix serve as comparative context when a cluster or node is selected.
 
 ---
 
-## 8. Cobertura dos critérios de avaliação <a name="criterios"></a>
+## 8. Grading Criteria Coverage <a name="criteria"></a>
 
-| # | Critério | Onde está implementado |
-|---|----------|------------------------|
-| 1 | Novo dataset incorporado em todas as views | `boardgames_1000.json` usado em todas as 5 views |
-| 2 | Problemas de qualidade claros e tratados | Painel "Data Quality" + seção "Cleaning strategy" na sidebar |
-| 3 | Pré-processamento claro e argumentado | `preprocess_data.mjs` + `encodeForKMeans()` + seção Task 1 deste README |
-| 4 | Top-X dinâmico | Seletor na sidebar: 100 / 200 / 500 / 1000 |
-| 5 | 5-tuple Trend para Task 2 | Seção Task 2 deste README; tarefa argumentada |
-| 6 | Visualização dos clusters | Scatter + convex hulls + centroids em `kmeans_plot.js` |
-| 7 | Visualização adequada para a tarefa | Seção "Decisões de design" + perfis descritivos dos clusters |
-| 8 | Interação com k intuitiva | Slider k na sidebar (1 arraste → recomputa) |
-| 9 | Métrica de distância adaptável | Dropdown com 3 métricas (1 clique → recomputa) |
-| 10 | Visualização usando PageRank | Grafo force-directed em `pagerank_graph.js` |
-| 11 | Argumentação da correlação | Seção Task 3 + painel de features compartilhadas |
-| 12 | Scores e recomendações como componentes centrais | Node size ∝ PageRank · arestas = `fans_liked` · painel de detalhe |
-| 13 | Correlações entre jogo-chave e recomendados | Clique no nó: anel amber (selecionado) + teal (recomendados) + painel shared features |
-| 14 | Seleção em Task 2 e Task 3 para highlight | Click em k-means → cluster · click em pagerank → recomendados |
-| 15 | Highlight nas views do Project 1 e Project 2 | Todas as 5 views respondem via `applyHighlightToAll()` |
-| 16 | Demonstração de como o highlight apoia a análise | Exemplo passo-a-passo na seção Task 4 |
-| 17 | Argumentação de elementos incluídos/excluídos | Seção "Decisões de design" |
+| # | Criterion | Where it is implemented |
+|---|-----------|------------------------|
+| 1 | New dataset incorporated in all views | `boardgames_1000.json` used across all 5 views |
+| 2 | Data quality issues clear and handled | "Data Quality" panel + "Cleaning strategy" section in sidebar |
+| 3 | Preprocessing clear and well-argued | `preprocess_data.mjs` + `encodeForKMeans()` + Task 1 section in this README |
+| 4 | Top-X dynamic filtering | Sidebar selector: 100 / 200 / 500 / 1000 |
+| 5 | 5-tuple Trend task designed for Task 2 | Task 2 section in this README |
+| 6 | Clustering visualization implemented | Scatter + convex hulls + centroids in `kmeans_plot.js` |
+| 7 | Visualization appropriate for the task | Design Decisions section + auto-generated cluster profiles |
+| 8 | Interaction with k intuitive | k slider in sidebar (1 drag → recomputes) |
+| 9 | Distance metric adaptable dynamically | Dropdown with 3 metrics (1 click → recomputes) |
+| 10 | Visualization using PageRank | Force-directed graph in `pagerank_graph.js` |
+| 11 | Argumentation for correlation description | Task 3 section + shared features panel |
+| 12 | Significance scores and recommendations as core components | Node size ∝ PageRank · edges = `fans_liked` · detail panel |
+| 13 | Correlations between key game and recommendees | Amber ring (selected) + teal ring (recommendees) + shared features |
+| 14 | Selection from Task 2 and Task 3 for highlighting | K-Means click → cluster · PageRank click → recommendees |
+| 15 | Highlighting in Project 1 and Project 2 views | All 5 views respond via `applyHighlightToAll()` |
+| 16 | Demonstration of how highlighting supports analysis | Step-by-step example in Task 4 section |
+| 17 | Argumentation for included/excluded elements | Design Decisions section |
